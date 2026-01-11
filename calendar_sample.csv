@@ -1,0 +1,31 @@
+id,title,date,start_time,end_time,duration_minutes,organizer,attendees,meeting_type,description,recurring
+1,Weekly Team Standup,2026-01-12,09:00,09:30,30,Sarah Kim,CTO;5 Engineers,standup,Weekly sync on sprint progress,true
+2,Architecture Review Board,2026-01-12,10:00,11:30,90,CTO,CTO;3 Staff Engineers;2 Principal Engineers,architecture,Review of new payment service design,true
+3,1:1 with VP Engineering,2026-01-12,13:00,13:45,45,CTO,CTO;Maria Santos,one_on_one,Weekly sync with direct report,true
+4,Junior Design Review - Login Flow,2026-01-12,14:00,15:00,60,Jake Thompson,CTO;Jake Thompson;2 Junior Engineers,design_review,Review of login page redesign,false
+5,Vendor Demo - Analytics Tool,2026-01-12,15:30,16:30,60,Sales Rep,CTO;Product Manager,vendor_demo,Demo of $25K analytics dashboard tool,false
+6,Board Prep Session,2026-01-12,17:00,18:00,60,CEO,CTO;CEO;CFO,board_prep,Prepare Q1 board presentation,false
+7,Morning Sync,2026-01-13,08:30,09:00,30,CTO,CTO;Chief of Staff,one_on_one,Daily priorities alignment,true
+8,Staff Engineer Interview - Panel,2026-01-13,10:00,11:00,60,Recruiting,CTO;2 Staff Engineers,interview,Final round for Staff Engineer candidate,false
+9,Sprint Retrospective - Platform Team,2026-01-13,11:30,12:30,60,Scrum Master,CTO;Platform Team (8 people),sprint_ceremony,Bi-weekly retro,true
+10,Lunch with Investor,2026-01-13,12:30,14:00,90,CTO,CTO;Partner at Sequoia,external,Relationship building,false
+11,Quick Sync - Logo Colors,2026-01-13,14:30,15:00,30,Marketing Lead,CTO;Marketing Lead,adhoc,Discuss new brand colors,false
+12,Kubernetes Migration Planning,2026-01-13,15:00,16:30,90,Platform Lead,CTO;Platform Team Leads,strategic_planning,Q1 migration roadmap review,false
+13,All Hands Prep,2026-01-13,16:30,17:00,30,HR,CTO;CEO;HR Lead,prep,Review all-hands slides,false
+14,1:1 with Staff Engineer,2026-01-14,09:00,09:45,45,CTO,CTO;Alex Chen,one_on_one,Career growth discussion,true
+15,Junior Engineer Interview,2026-01-14,10:00,11:00,60,Recruiting,CTO;Engineering Manager,interview,Interview loop for junior role,false
+16,Product Roadmap Review,2026-01-14,11:00,12:00,60,CPO,CTO;CPO;Product Leads,strategic_planning,Q2 product roadmap alignment,false
+17,Status Update Meeting,2026-01-14,13:00,14:00,60,Program Manager,CTO;All Engineering Managers,status_update,Weekly project status sync,true
+18,ML Platform Hiring Planning,2026-01-14,14:00,14:30,30,CTO,CTO;Recruiting Lead,hiring,Strategy for ML team buildout,false
+19,1:1 with Engineering Manager,2026-01-14,15:00,15:45,45,CTO,CTO;David Park,one_on_one,Weekly sync with direct report,true
+20,Design Review - Checkout Flow,2026-01-14,16:00,17:00,60,Senior Designer,CTO;UX Team,design_review,Review checkout redesign (mid-level team),false
+21,Coffee Chat - New Hire,2026-01-15,09:00,09:30,30,CTO,CTO;New Junior Engineer,adhoc,Welcome new team member,false
+22,Incident Post-Mortem,2026-01-15,10:00,11:00,60,SRE Lead,CTO;SRE Team;Affected Team Leads,incident_review,Review of Monday's outage,false
+23,Strategic Planning - AI Initiative,2026-01-15,11:00,12:30,90,CTO,CTO;AI Team;Product Leads,strategic_planning,AI roadmap for H1 2026,false
+24,Vendor Demo - CI/CD Platform,2026-01-15,13:00,14:00,60,Sales Rep,CTO;DevOps Lead,vendor_demo,Demo of $200K CI/CD platform,false
+25,Interview Debrief,2026-01-15,14:30,15:00,30,Recruiting,CTO;Interview Panel,hiring,Debrief on Staff Engineer candidate,false
+26,1:1 with Direct Report,2026-01-15,15:00,15:45,45,CTO,CTO;Jennifer Wu,one_on_one,Weekly sync with direct report,true
+27,Sprint Planning - Mobile Team,2026-01-15,16:00,17:30,90,Scrum Master,CTO;Mobile Team (6 people),sprint_ceremony,Sprint 24 planning,true
+28,External Conference Call,2026-01-16,09:00,09:30,30,Conference Organizer,CTO,external,Discuss keynote opportunity,false
+29,Mentorship Program Kickoff,2026-01-16,10:00,11:00,60,HR,CTO;Engineering Managers;Mentors,strategic,Launch engineering mentorship,false
+30,Team Building Event Planning,2026-01-16,11:30,12:00,30,Office Manager,CTO;Office Manager,adhoc,Discuss Q1 offsite logistics,false
