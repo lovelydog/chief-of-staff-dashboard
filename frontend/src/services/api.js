@@ -2,7 +2,8 @@
  * API service for communicating with the FastAPI backend
  */
 
-const API_BASE = 'http://localhost:8000/api';
+// Use relative URL in production (Vercel), localhost in development
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:8000/api';
 
 /**
  * Fetch calendar audit results
