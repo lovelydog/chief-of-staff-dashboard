@@ -6,6 +6,7 @@ export default function Layout({ children, activeView, onViewChange }) {
         { id: 'briefing', label: 'Daily Briefing', icon: '📊' },
         { id: 'audit', label: 'Calendar Audit', icon: '🔍' },
         { id: 'drafting', label: 'Drafting Assistant', icon: '✍️' },
+        { id: 'settings', label: 'Settings', icon: '⚙️' },
     ]
 
     return (
@@ -28,8 +29,8 @@ export default function Layout({ children, activeView, onViewChange }) {
                             key={item.id}
                             onClick={() => onViewChange(item.id)}
                             className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-all duration-200 ${activeView === item.id
-                                    ? 'bg-blue-500/20 text-blue-400 border-l-2 border-blue-500'
-                                    : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                ? 'bg-blue-500/20 text-blue-400 border-l-2 border-blue-500'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-700'
                                 }`}
                         >
                             <span className="text-xl">{item.icon}</span>

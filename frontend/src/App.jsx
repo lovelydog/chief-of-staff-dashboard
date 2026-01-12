@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import CalendarAudit from './components/CalendarAudit'
 import DailyBriefing from './components/DailyBriefing'
 import DraftingAssistant from './components/DraftingAssistant'
+import Settings from './components/Settings'
 
 function App() {
     const [activeView, setActiveView] = useState('briefing')
@@ -15,6 +16,8 @@ function App() {
                 return <DailyBriefing />
             case 'drafting':
                 return <DraftingAssistant />
+            case 'settings':
+                return <Settings />
             default:
                 return <DailyBriefing />
         }
