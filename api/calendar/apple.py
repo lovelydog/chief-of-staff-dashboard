@@ -9,6 +9,9 @@ import xml.etree.ElementTree as ET
 import ssl
 
 
+ICLOUD_CALDAV_BASE = "https://caldav.icloud.com"
+
+
 def parse_ical_event(ical_data):
     """Parse a single VEVENT from iCal format"""
     event = {}
@@ -55,6 +58,15 @@ def parse_datetime(dt_str):
         return datetime.now()
 
 
+def resolve_url(base_url, path):
+    """Resolve a relative path against a base URL"""
+    if path.startswith('http://') or path.startswith('https://'):
+        return path
+    if path.startswith('/'):
+        return f"{ICLOUD_CALDAV_BASE}{path}"
+    return f"{base_url.rstrip('/')}/{path}"
+
+
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
@@ -71,7 +83,7 @@ class handler(BaseHTTPRequestHandler):
             data = json.loads(body)
             
             apple_id = data.get('apple_id', '').strip()
-            app_password = data.get('app_password', '').strip()
+            app_password = data.get('app_password', '').strip().replace(' ', '')  # Remove spaces
             
             if not apple_id or not app_password:
                 self._send_error(400, "Apple ID and app-specific password required")
@@ -81,44 +93,51 @@ class handler(BaseHTTPRequestHandler):
             credentials = base64.b64encode(f"{apple_id}:{app_password}".encode()).decode()
             auth_header = f'Basic {credentials}'
             
-            # Step 1: Discover principal URL
-            principal_url = self._discover_principal(auth_header, apple_id)
+            # Step 1: Discover principal and calendar home
+            calendar_home = self._discover_calendar_home(auth_header, apple_id)
             
-            if not principal_url:
-                # Fallback: try direct calendar home
-                principal_url = f"https://caldav.icloud.com/{apple_id}/calendars/"
+            if not calendar_home:
+                self._send_error(404, "Could not discover calendar. Please verify your Apple ID.")
+                return
             
-            # Step 2: Get calendar events
-            events = self._fetch_events(auth_header, principal_url)
+            # Step 2: List calendars
+            calendars = self._list_calendars(auth_header, calendar_home)
+            
+            # Step 3: Fetch events from all calendars
+            all_events = []
+            for cal_url in calendars:
+                events = self._fetch_events(auth_header, cal_url)
+                all_events.extend(events)
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps({
-                "events": events, 
+                "events": all_events, 
                 "source": "apple",
                 "connected": True,
-                "message": f"Found {len(events)} events"
+                "calendars_found": len(calendars),
+                "message": f"Found {len(all_events)} events from {len(calendars)} calendar(s)"
             }).encode())
             
         except HTTPError as e:
             error_body = ""
             try:
-                error_body = e.read().decode()
+                error_body = e.read().decode()[:500]
             except:
                 pass
             
             if e.code == 401:
-                self._send_error(401, "Invalid Apple ID or app-specific password. Make sure you're using an app-specific password from appleid.apple.com")
+                self._send_error(401, "Invalid credentials. Use the 16-character app-specific password (with or without dashes).")
             elif e.code == 404:
-                self._send_error(404, "Calendar not found. Please check your Apple ID.")
+                self._send_error(404, f"Calendar not found at the expected location.")
             else:
-                self._send_error(e.code, f"iCloud error: {e.code} - {error_body[:200]}")
+                self._send_error(e.code, f"iCloud error {e.code}: {error_body}")
         except URLError as e:
             self._send_error(500, f"Connection error: {str(e)}")
         except Exception as e:
-            self._send_error(500, str(e))
+            self._send_error(500, f"Error: {str(e)}")
     
     def _send_error(self, code, message):
         self.send_response(code)
@@ -127,42 +146,146 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps({"error": message}).encode())
     
-    def _discover_principal(self, auth_header, apple_id):
-        """Discover the user's calendar principal URL"""
-        try:
-            # Try the well-known CalDAV endpoint
-            propfind = '''<?xml version="1.0" encoding="utf-8"?>
+    def _make_request(self, url, method, body, auth_header, depth='1'):
+        """Make a CalDAV request with proper error handling"""
+        # Ensure full URL
+        if not url.startswith('http'):
+            url = resolve_url(ICLOUD_CALDAV_BASE, url)
+        
+        req = Request(
+            url,
+            data=body.encode('utf-8') if body else None,
+            headers={
+                'Authorization': auth_header,
+                'Content-Type': 'application/xml; charset=utf-8',
+                'Depth': depth
+            },
+            method=method
+        )
+        
+        ctx = ssl.create_default_context()
+        return urlopen(req, timeout=15, context=ctx)
+    
+    def _discover_calendar_home(self, auth_header, apple_id):
+        """Discover the user's calendar home URL"""
+        
+        # Method 1: Try direct calendar home path (most common)
+        direct_paths = [
+            f"/{apple_id}/calendars/",
+            f"/calendars/home/{apple_id}/",
+        ]
+        
+        for path in direct_paths:
+            try:
+                url = resolve_url(ICLOUD_CALDAV_BASE, path)
+                propfind = '''<?xml version="1.0" encoding="utf-8"?>
 <D:propfind xmlns:D="DAV:">
   <D:prop>
+    <D:resourcetype/>
+  </D:prop>
+</D:propfind>'''
+                with self._make_request(url, 'PROPFIND', propfind, auth_header, '0') as resp:
+                    if resp.status == 207:
+                        return url
+            except HTTPError as e:
+                if e.code not in [401, 404]:
+                    continue
+                if e.code == 401:
+                    raise
+            except:
+                continue
+        
+        # Method 2: Discover via principal
+        try:
+            propfind = '''<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop>
     <D:current-user-principal/>
+    <C:calendar-home-set/>
   </D:prop>
 </D:propfind>'''
             
-            req = Request(
-                "https://caldav.icloud.com/",
-                data=propfind.encode('utf-8'),
-                headers={
-                    'Authorization': auth_header,
-                    'Content-Type': 'application/xml; charset=utf-8',
-                    'Depth': '0'
-                },
-                method='PROPFIND'
-            )
-            
-            ctx = ssl.create_default_context()
-            with urlopen(req, timeout=10, context=ctx) as response:
-                xml_data = response.read().decode()
-                # Parse to find principal URL
-                if 'href' in xml_data.lower():
-                    # Simple extraction
-                    import re
-                    match = re.search(r'<[^>]*href[^>]*>([^<]+)</[^>]*href>', xml_data, re.IGNORECASE)
-                    if match:
-                        return match.group(1)
+            with self._make_request(f"{ICLOUD_CALDAV_BASE}/", 'PROPFIND', propfind, auth_header, '0') as resp:
+                xml_data = resp.read().decode()
+                
+                # Look for calendar-home-set or href
+                import re
+                home_match = re.search(r'calendar-home-set[^>]*>.*?<[^>]*href[^>]*>([^<]+)<', xml_data, re.IGNORECASE | re.DOTALL)
+                if home_match:
+                    return resolve_url(ICLOUD_CALDAV_BASE, home_match.group(1).strip())
+                
+                principal_match = re.search(r'current-user-principal[^>]*>.*?<[^>]*href[^>]*>([^<]+)<', xml_data, re.IGNORECASE | re.DOTALL)
+                if principal_match:
+                    principal_url = resolve_url(ICLOUD_CALDAV_BASE, principal_match.group(1).strip())
+                    # Now get calendar-home-set from principal
+                    return self._get_calendar_home_from_principal(auth_header, principal_url)
+        except HTTPError as e:
+            if e.code == 401:
+                raise
         except:
             pass
         
         return None
+    
+    def _get_calendar_home_from_principal(self, auth_header, principal_url):
+        """Get calendar home from principal URL"""
+        try:
+            propfind = '''<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop>
+    <C:calendar-home-set/>
+  </D:prop>
+</D:propfind>'''
+            
+            with self._make_request(principal_url, 'PROPFIND', propfind, auth_header, '0') as resp:
+                xml_data = resp.read().decode()
+                import re
+                match = re.search(r'<[^>]*href[^>]*>([^<]+)</[^>]*href>', xml_data, re.IGNORECASE)
+                if match:
+                    return resolve_url(ICLOUD_CALDAV_BASE, match.group(1).strip())
+        except:
+            pass
+        return None
+    
+    def _list_calendars(self, auth_header, calendar_home):
+        """List all calendars in the calendar home"""
+        calendars = []
+        
+        try:
+            propfind = '''<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop>
+    <D:resourcetype/>
+    <D:displayname/>
+  </D:prop>
+</D:propfind>'''
+            
+            with self._make_request(calendar_home, 'PROPFIND', propfind, auth_header, '1') as resp:
+                xml_data = resp.read().decode()
+                
+                # Parse responses
+                root = ET.fromstring(xml_data)
+                for response in root.iter():
+                    if response.tag.endswith('}response') or response.tag == 'response':
+                        href = None
+                        is_calendar = False
+                        
+                        for child in response.iter():
+                            if child.tag.endswith('}href') or child.tag == 'href':
+                                href = child.text
+                            if child.tag.endswith('}calendar') or child.tag == 'calendar':
+                                is_calendar = True
+                        
+                        if href and is_calendar:
+                            calendars.append(resolve_url(ICLOUD_CALDAV_BASE, href.strip()))
+        except:
+            # Fallback: treat calendar_home as the calendar itself
+            calendars.append(calendar_home)
+        
+        if not calendars:
+            calendars.append(calendar_home)
+        
+        return calendars
     
     def _fetch_events(self, auth_header, calendar_url):
         """Fetch events from a calendar URL"""
@@ -173,7 +296,6 @@ class handler(BaseHTTPRequestHandler):
         start = now.strftime('%Y%m%dT000000Z')
         end = (now + timedelta(days=14)).strftime('%Y%m%dT235959Z')
         
-        # CalDAV REPORT query
         query = f'''<?xml version="1.0" encoding="utf-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:prop>
@@ -189,35 +311,14 @@ class handler(BaseHTTPRequestHandler):
   </C:filter>
 </C:calendar-query>'''
         
-        req = Request(
-            calendar_url,
-            data=query.encode('utf-8'),
-            headers={
-                'Authorization': auth_header,
-                'Content-Type': 'application/xml; charset=utf-8',
-                'Depth': '1'
-            },
-            method='REPORT'
-        )
-        
-        ctx = ssl.create_default_context()
-        
         try:
-            with urlopen(req, timeout=15, context=ctx) as response:
-                xml_data = response.read().decode()
-                
-                # Parse XML response
-                # Handle namespaces
-                namespaces = {
-                    'D': 'DAV:',
-                    'C': 'urn:ietf:params:xml:ns:caldav'
-                }
-                
+            with self._make_request(calendar_url, 'REPORT', query, auth_header, '1') as resp:
+                xml_data = resp.read().decode()
                 root = ET.fromstring(xml_data)
                 
-                for resp in root.iter():
-                    if 'calendar-data' in resp.tag and resp.text:
-                        ical = resp.text
+                for elem in root.iter():
+                    if 'calendar-data' in elem.tag and elem.text:
+                        ical = elem.text
                         if 'VEVENT' in ical:
                             event = parse_ical_event(ical)
                             
@@ -244,7 +345,9 @@ class handler(BaseHTTPRequestHandler):
                                     "source": "apple"
                                 })
         except HTTPError as e:
-            if e.code != 404:
+            if e.code not in [404, 403]:
                 raise
+        except:
+            pass
         
         return events
